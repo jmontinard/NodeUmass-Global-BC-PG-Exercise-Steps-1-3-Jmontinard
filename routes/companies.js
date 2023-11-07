@@ -28,40 +28,48 @@ router.get('/', async (req, res, next) =>{
   })
 
 
+ 
   router.get("/:code", async function (req, res, next) {
     try {
-      const {code} = req.params;
+      const { code } = req.params;
   
-      const compResult = await db.query(
-            `SELECT code, name, description
-             FROM companies
-             WHERE code = $1`,
-          [code]
+      const companyResult = await db.query(
+        `SELECT c.code, c.name, c.description, 
+                ARRAY_AGG(it.ind_code) AS industry_codes,
+                ARRAY_AGG(i.industry) AS industries
+         FROM companies c
+         LEFT JOIN industries_tags it ON c.code = it.com_code
+         LEFT JOIN industries i ON it.ind_code = i.code
+         WHERE c.code = $1
+         GROUP BY c.code, c.name, c.description`,
+        [code]
       );
   
-      const invResult = await db.query(
-            `SELECT id
-             FROM invoices
-             WHERE comp_code = $1`,
-          [code]
+      const invoiceResult = await db.query(
+        `SELECT id, amt, paid, paid_date
+         FROM invoices
+         WHERE comp_code = $1`,
+        [code]
       );
   
-      if (compResult.rows.length === 0) {
-        throw new ExpressError(`No such company: ${code}`, 404)
+      if (companyResult.rows.length === 0) {
+        throw new ExpressError(`No such company: ${code}`, 404);
       }
   
-      const company = compResult.rows[0];
-      const invoices = invResult.rows;
+      const company = companyResult.rows[0];
+      const invoices = invoiceResult.rows;
   
-      company.invoices = invoices.map(inv => inv.id);
+      company.invoices = invoices;
   
-      return res.json({"company": company});
-    }
-  
-    catch (err) {
+      return res.json({ company });
+    } catch (err) {
       return next(err);
     }
   });
+  
+  
+
+
 
   router.put('/:code', async (req, res, next) => {
     try {
@@ -91,7 +99,18 @@ router.get('/', async (req, res, next) =>{
 });
 
 
-
+// industrie routes 
+// Associate an industry with a company
+router.post('/:code/industries', async (req, res, next) => {
+  try {
+    const { code } = req.params;
+    const { ind_code } = req.body;
+    const result = await db.query('INSERT INTO industries_tags (com_code, ind_code) VALUES ($1, $2) RETURNING *', [code, ind_code]);
+    return res.status(201).json(result.rows[0]);
+  } catch (error) {
+    return next(error);
+  }
+});
 
 
 

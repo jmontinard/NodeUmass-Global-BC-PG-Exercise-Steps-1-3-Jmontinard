@@ -6,12 +6,16 @@ const express = require("express");
 const app = express();
 const ExpressError = require("./expressError")
 
-app.use(express.json());
 
 const cRoutes = require("./routes/companies");
 const iRoutes = require("./routes/invoices");
+const nRoutes = require("./routes/industries");
+
+app.use(express.json());
+
 app.use("/companies", cRoutes);
 app.use("/invoices", iRoutes);
+app.use("/industries", nRoutes);
 /** 404 handler */
 
 app.use(function(req, res, next) {
